@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+
+  # Бэкенд (FastAPI)
+  backend:
+    build: ./backend
+    container_name: kanban_backend
+    ports:
+      - "${API_PORT}:8000"
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/\${DB_NAME}
+      - SECRET_KEY=\${SECRET_KEY}
+    networks:
+      - kanban-net
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Фронтенд (React)
+  frontend:
+    build: ./frontend
+    container_name: kanban_frontend
+    ports:
+      - "${FRONTEND_PORT}:3000"
+    environment:
+      - FAST_REFRESH=false
+    depends_on:
+      - backend
+    networks:
+      - kanban-net
+
+
+networks:
+  kanban-net:
+    driver: bridge
