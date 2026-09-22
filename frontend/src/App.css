@@ -1,0 +1,15 @@
+.App {
+  text-align: center;
+  /* Убрали лишние отступы по умолчанию, если они мешают */
+  margin: 0;
+  padding: 0;
+}
+
+/* Эти три блока можно смело удалить, они нужны были только для стартовой страницы React */
+/* .App-logo { ... } */
+/* @media (prefers-reduced-motion: no-preference) { ... } */
+/* @keyframes App-logo-spin { ... } */
+
+.App-link {
+  color: #61dafb;
+}

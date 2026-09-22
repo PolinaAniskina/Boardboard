@@ -1,0 +1,15 @@
+body {
+    margin: 0;
+    padding: 0;
+    /* Растягиваем body на всю высоту и ширину окна */
+    min-height: 100vh;
+    width: 100%;
+    /* Убираем стандартные отступы у html, если они есть */
+    box-sizing: border-box;
+}
+
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
