@@ -10,6 +10,7 @@
   AuditLog — журнал всех изменений
 """
 from datetime import datetime, timezone
+from enum import Enum
 from sqlalchemy import (
     Column, Integer, String, Text, DateTime, ForeignKey,
     Table, Boolean, JSON,
@@ -35,6 +36,25 @@ board_members = Table(
     Column("role", String(20), default="member"),
 )
 
+user_roles = Table(
+    "user_roles",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("role_id", Integer, ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+)
+
+class Role(Base):
+    __tablename__ = "roles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+
+    # Важно: back_populates должно совпадать с именем поля в User
+    users: Mapped[list["User"]] = relationship(
+        secondary=user_roles,
+        back_populates="roles"
+    )
+
 
 class User(Base):
     __tablename__ = "users"
@@ -43,7 +63,11 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
     email: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    roles: Mapped[list[Role]] = relationship(
+        "Role", 
+        secondary=user_roles, 
+        back_populates="users"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     owned_boards = relationship("Board", back_populates="owner")

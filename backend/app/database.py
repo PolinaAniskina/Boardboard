@@ -4,6 +4,9 @@ SQLite — без отдельного сервера, один файл board.d
 """
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from dotenv import load_dotenv
+
+load_dotenv()
 
 DATABASE_URL = "sqlite:///./board.db"
 

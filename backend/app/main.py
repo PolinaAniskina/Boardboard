@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine, Base
 from app.routers import auth, boards, columns, cards, websocket
+from app.seed_roles import seed_roles
 
 
 @asynccontextmanager
@@ -22,6 +23,21 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+from sqlalchemy.exc import IntegrityError
+
+@app.on_event("startup")
+def startup_event():
+    from app.database import get_db
+    db = next(get_db())
+    try:
+        seed_roles(db)
+    except IntegrityError:
+        # Роли уже есть — нормально
+        pass
+    finally:
+        db.close()
+
 
 app.add_middleware(
     CORSMiddleware,

@@ -7,13 +7,13 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, Board, Column
 from app.schemas import ColumnCreate, ColumnUpdate, ColumnOut
-from app.auth import get_current_user
+from app.auth import get_current_user_with_roles
 from app.services.audit import log_action
 
 router = APIRouter(prefix="/boards/{board_id}/columns", tags=["columns"])
 
 
-def check_board_access(board_id: int, user: User, db: Session) -> Board:
+def check_board_access(board_id: int, user: User = Depends(get_current_user_with_roles), db: Session = Depends(get_db)) -> Board:
     board = db.query(Board).filter(Board.id == board_id).first()
     if not board:
         raise HTTPException(status_code=404, detail="Доска не найдена")
@@ -21,15 +21,18 @@ def check_board_access(board_id: int, user: User, db: Session) -> Board:
 
 
 @router.get("", response_model=list[ColumnOut])
-def list_columns(board_id: int, user: User = Depends(get_current_user),
+def list_columns(board_id: int, current: dict = Depends(get_current_user_with_roles),
                     db: Session = Depends(get_db)):
+    user = current["user"]
+    
     check_board_access(board_id, user, db)
     return db.query(Column).filter(Column.board_id == board_id).order_by(Column.position).all()
 
 
 @router.post("", response_model=ColumnOut, status_code=201)
 def create_column(board_id: int, data: ColumnCreate,
-                    user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+                    current: dict = Depends(get_current_user_with_roles), db: Session = Depends(get_db)):
+    user = current["user"]
     check_board_access(board_id, user, db)
     col = Column(board_id=board_id, name=data.name, position=data.position)
     db.add(col)
@@ -41,7 +44,8 @@ def create_column(board_id: int, data: ColumnCreate,
 
 @router.put("/{column_id}", response_model=ColumnOut)
 def update_column(board_id: int, column_id: int, data: ColumnUpdate,
-                    user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+                    current: dict = Depends(get_current_user_with_roles), db: Session = Depends(get_db)):
+    user = current["user"]
     col = db.query(Column).filter(Column.id == column_id, Column.board_id == board_id).first()
     if not col:
         raise HTTPException(status_code=404, detail="Колонка не найдена")
@@ -56,7 +60,8 @@ def update_column(board_id: int, column_id: int, data: ColumnUpdate,
 
 @router.delete("/{column_id}", status_code=204)
 def delete_column(board_id: int, column_id: int,
-                    user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+                    current: dict = Depends(get_current_user_with_roles), db: Session = Depends(get_db)):
+    user = current["user"]
     col = db.query(Column).filter(Column.id == column_id, Column.board_id == board_id).first()
     if not col:
         raise HTTPException(status_code=404, detail="Колонка не найдена")
