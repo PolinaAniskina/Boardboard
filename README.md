@@ -1,22 +1,17 @@
 # Kanban Board
 
-Канбан-доска с real-time обновлениями через WebSocket.
+Канбан-доска (пока что с очень ограниченным функционалом).
 
 ## Стек
 
 - **Бэкенд**: FastAPI + SQLAlchemy + SQLite
-- **Фронтенд**: React (Vite) + dnd-kit
-- **Real-time**: WebSocket
+- **Фронтенд**: React
 - **Контейнеризация**: Docker Compose
 
 ## Возможности
 
 - Регистрация и авторизация (JWT)
 - Несколько досок, у каждой свои колонки и карточки
-- Drag & drop карточек между колонками
-- Real-time: изменения видны всем подключённым участникам
-- Назначение исполнителей на карточки
-- Журнал всех изменений (audit log)
 - REST API с автодокументацией (Swagger)
 
 ## Запуск
@@ -29,10 +24,14 @@ docker-compose up --build
 cd backend
 pip install -r requirements.txt
 uvicorn app.main:app --reload
+# В втором терминале (фронтенд)
+cd frontend
+npm start
 ```
 
 - API: http://localhost:8000
 - Swagger: http://localhost:8000/docs
+- Frontend: http://localhost:3000
 
 ## Модели БД
 
