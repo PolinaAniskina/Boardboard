@@ -1,7 +1,5 @@
 """
 WebSocket-эндпоинт для real-time обновлений доски.
-Клиент подключается к /api/ws/{board_id} и получает события:
-    card_created, card_updated, card_moved, card_deleted
 """
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.services.ws_manager import manager

@@ -32,7 +32,7 @@ def register(data: UserCreate, db: Session = Depends(get_db)):
     )
 
     db.add(user)
-    db.flush()  # <-- получаем user.id
+    db.flush()
 
     member_role = db.query(Role).filter(Role.name == "member").first()
     if member_role:

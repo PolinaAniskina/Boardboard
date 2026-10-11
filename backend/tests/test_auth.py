@@ -10,7 +10,6 @@ def test_register_success(client):
     # Только проверяем, что пользователь создан
     assert data["username"] == "test_reg"
     assert "id" in data
-    # НЕ проверяем access_token здесь!
 
 
 def test_register_duplicate(client, test_user):
@@ -26,7 +25,7 @@ def test_register_duplicate(client, test_user):
 
 def test_login_success(client, test_user):
     payload = {
-        "username": test_user.username,   # <-- берём из фикстуры
+        "username": test_user.username,
         "password": "user123"
     }
     resp = client.post("/api/auth/login", json=payload)

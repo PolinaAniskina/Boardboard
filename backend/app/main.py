@@ -33,7 +33,6 @@ def startup_event():
     try:
         seed_roles(db)
     except IntegrityError:
-        # Роли уже есть — нормально
         pass
     finally:
         db.close()

@@ -3,7 +3,6 @@ def test_create_board_as_member(auth_client):
                "description": "Test"
                }
     resp = auth_client.post("/api/boards", json=payload)
-    # Если MEMBER разрешено создавать доски — 201, если нет — 403. Выбери то, что у тебя в логике.
     assert resp.status_code in (201, 403)
 
 

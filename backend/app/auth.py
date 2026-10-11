@@ -32,7 +32,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 def create_access_token(user_id: int, roles: list[str], expires_days: int = 7):
     to_encode = {
         "sub": str(user_id),
-        "roles": roles,  # вот тут передаём роли
+        "roles": roles,
         "exp": datetime.utcnow() + timedelta(days=expires_days)
     }
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)

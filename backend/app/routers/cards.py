@@ -1,6 +1,5 @@
 """
 Роутер карточек: создание, редактирование, перемещение, удаление.
-Контроль доступа по ролям + аудит + WebSocket.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -44,7 +43,7 @@ def list_cards(
     board = db.query(Board).filter(Board.id == board_id).first()
     is_owner = board.owner_id == user.id
 
-    from app.models import board_members  # импортируем локально, чтобы избежать циклических импортов
+    from app.models import board_members
     is_member = (
         db.query(board_members)
         .filter(board_members.c.board_id == board_id, board_members.c.user_id == user.id)
@@ -133,7 +132,6 @@ async def update_card(
 
     board = col.board
 
-    # Редактировать может: владелец доски, админ, либо (если есть логика) участник доски
     is_owner = board.owner_id == user.id
     from app.models import board_members
     is_member = (

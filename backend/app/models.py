@@ -1,13 +1,6 @@
 """
 Модели базы данных.
 
-Связи:
-  User 1--* Board (владелец)
-  User 1--* Card (исполнитель)
-  Board 1--* Column
-  Column 1--* Card
-  Card *--* Label (many-to-many через CardLabel)
-  AuditLog — журнал всех изменений
 """
 from datetime import datetime, timezone
 from enum import Enum
@@ -49,7 +42,6 @@ class Role(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
 
-    # Важно: back_populates должно совпадать с именем поля в User
     users: Mapped[list["User"]] = relationship(
         secondary=user_roles,
         back_populates="roles"

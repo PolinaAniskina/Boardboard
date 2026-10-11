@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from fastapi.testclient import TestClient
 from app.main import app
 from app.database import Base, get_db
-from app.models import User, Role, user_roles  # пути под свой проект
+from app.models import User, Role, user_roles
 from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -38,7 +38,7 @@ def db_with_roles(db):
 @pytest.fixture(scope="session")
 def db():
     # 1. Создаём все таблицы ОДИН РАЗ на всю сессию тестов
-    Base.metadata.drop_all(bind=test_engine)  # опционально: сбрасывать перед запуском
+    Base.metadata.drop_all(bind=test_engine)
     Base.metadata.create_all(bind=test_engine)
 
     # 2. Создаём сессию

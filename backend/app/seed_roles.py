@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from .models import Role, User
 from .database import get_db, engine
 
-ROLES_NAMES = ["admin", "member"]  # у тебя две роли
+ROLES_NAMES = ["admin", "member"] 
 
 def seed_roles(db: Session):
     for name in ROLES_NAMES:

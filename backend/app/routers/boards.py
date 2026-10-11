@@ -1,6 +1,5 @@
 """
 Роутер досок: создание, просмотр, обновление, удаление.
-Теперь корректно работает с тем, что get_current_user_with_roles возвращает dict.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -14,7 +13,6 @@ router = APIRouter(prefix="/boards", tags=["boards"])
 
 
 def has_role(current: dict, role_name: str) -> bool:
-    """Проверка, есть ли у текущего пользователя указанная роль."""
     roles = current.get("roles", [])
     return role_name in roles
 
