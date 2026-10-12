@@ -357,3 +357,52 @@
   font-size: 12px;
   color: var(--color-text-muted);
 }
+
+/* --- WS-индикатор --- */
+.board-header__ws {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.board-header__ws-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.board-header__ws--open {
+  background: #e2f5e6;
+  color: #2e7d3a;
+}
+.board-header__ws--connecting {
+  background: #fff3d6;
+  color: #8a5a00;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.board-header__ws--closed {
+  background: #fdecec;
+  color: var(--color-danger);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.board-header__ws--auth_failed {
+  background: #fdecec;
+  color: var(--color-danger);
+}

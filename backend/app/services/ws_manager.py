@@ -1,7 +1,3 @@
-"""
-Менеджер WebSocket-соединений.
-Хранит активные соединения, сгруппированные по board_id.
-"""
 import json
 from fastapi import WebSocket
 
@@ -10,8 +6,8 @@ class ConnectionManager:
     def __init__(self):
         self.active: dict[int, list[WebSocket]] = {}
 
-    def connect(self, board_id: int, ws: WebSocket):
-        ws.accept()
+    async def connect(self, board_id: int, ws: WebSocket):
+        await ws.accept()
         if board_id not in self.active:
             self.active[board_id] = []
         self.active[board_id].append(ws)

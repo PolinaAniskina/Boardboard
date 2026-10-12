@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict
 from jose import jwt
 
-SECRET_KEY = "твой_секрет"
+SECRET_KEY = "super-secret-key-change-in-production"
 ALGORITHM = "HS256"
 
 def create_access_token(user_id: int, roles: list[str], expires_days: int = 7) -> str:

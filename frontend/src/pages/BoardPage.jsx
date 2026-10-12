@@ -17,6 +17,7 @@ export default function BoardPage() {
         board,
         loading,
         error,
+        wsStatus,
         addColumn,
         editColumn,
         removeColumn,
@@ -190,6 +191,29 @@ export default function BoardPage() {
                     <span className="board-header__stat">
                         {board.columns.length} кол. · {totalCards} карт.
                     </span>
+
+                    <span
+                        className={`board-header__ws board-header__ws--${wsStatus}`}
+                        title={
+                            wsStatus === 'open'
+                                ? 'Подключено к real-time'
+                                : wsStatus === 'connecting'
+                                    ? 'Подключение…'
+                                    : wsStatus === 'auth_failed'
+                                        ? 'Ошибка авторизации WebSocket. Войдите заново.'
+                                        : 'Нет соединения — попытки восстановить'
+                        }
+                    >
+                        <span className="board-header__ws-dot" />
+                        {wsStatus === 'open'
+                            ? 'Live'
+                            : wsStatus === 'connecting'
+                                ? '…'
+                                : wsStatus === 'auth_failed'
+                                    ? 'Auth'
+                                    : 'Offline'}
+                    </span>
+
                     {canManageColumns && (
                         <button className="btn" onClick={openCreateColumn}>
                             + Колонка

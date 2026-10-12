@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getBoard } from '../api/boards';
 import {
     createColumn as apiCreateColumn,
@@ -11,6 +11,7 @@ import {
     deleteCard as apiDeleteCard,
     moveCard as apiMoveCard,
 } from '../api/cards';
+import { useBoardSocket } from './useBoardSocket';
 
 function sortColumns(columns) {
     return [...columns].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
@@ -29,6 +30,7 @@ function normalizeBoard(board) {
         })),
     };
 }
+
 // Локальный arrayMove — чтобы не тянуть импорт из dnd-kit в хук
 function arrayMoveLocal(arr, from, to) {
     const next = arr.slice();
@@ -117,6 +119,24 @@ export function useBoardData(boardId) {
             const created = await apiCreateCard(boardId, payload);
             setBoard((prev) => {
                 if (!prev) return prev;
+
+                // Идемпотентность: если карточка с таким id уже есть
+                // (например, пришла по WS быстрее HTTP-ответа) — не дублируем.
+                const exists = prev.columns.some((c) =>
+                    c.cards.some((card) => card.id === created.id)
+                );
+                if (exists) {
+                    return {
+                        ...prev,
+                        columns: prev.columns.map((c) => ({
+                            ...c,
+                            cards: c.cards.map((card) =>
+                                card.id === created.id ? { ...card, ...created } : card
+                            ),
+                        })),
+                    };
+                }
+
                 const columns = prev.columns.map((c) => {
                     if (c.id !== created.column_id) return c;
                     return { ...c, cards: sortCards([...c.cards, created]) };
@@ -275,11 +295,165 @@ export function useBoardData(boardId) {
         [boardId]
     );
 
+    // Дедупликация WS-событий: если одно и то же событие приходит
+    // дважды в течение 500 мс (например, из-за двух сокетов),
+    // игнорируем второе.
+    const seenEventsRef = useRef(new Map()); // key -> timestamp
+
+    const isDuplicateEvent = useCallback((payload) => {
+        const { event, data } = payload;
+        if (!event || !data || data.id == null) return false;
+        const key = `${event}:${data.id}`;
+        const now = Date.now();
+        const last = seenEventsRef.current.get(key);
+        // чистим старые записи, чтобы не росла карта
+        if (seenEventsRef.current.size > 200) {
+            for (const [k, t] of seenEventsRef.current) {
+                if (now - t > 5000) seenEventsRef.current.delete(k);
+            }
+        }
+        if (last && now - last < 500) return true;
+        seenEventsRef.current.set(key, now);
+        return false;
+    }, []);
+
+    // --- WS: применяем событие к состоянию ---
+    const applyWsEvent = useCallback((payload) => {
+        const { event, data } = payload;
+        if (!data) return;
+
+        // Дедупликация — если это эхо от второго сокета,
+        // не применяем повторно
+        if (isDuplicateEvent(payload)) return;
+        setBoard((prev) => {
+            if (!prev) return prev;
+
+            // ----- card_created -----
+            if (event === 'card_created') {
+                const incomingId = Number(data.id);
+                const exists = prev.columns.some((c) =>
+                    c.cards.some((card) => Number(card.id) === incomingId)
+                );
+                if (exists) {
+                    return {
+                        ...prev,
+                        columns: prev.columns.map((c) => ({
+                            ...c,
+                            cards: c.cards.map((card) =>
+                                Number(card.id) === incomingId ? { ...card, ...data } : card
+                            ),
+                        })),
+                    };
+                }
+                return {
+                    ...prev,
+                    columns: prev.columns.map((c) =>
+                        Number(c.id) === Number(data.column_id)
+                            ? { ...c, cards: sortCards([...c.cards, data]) }
+                            : c
+                    ),
+                };
+            }
+
+            // ----- card_updated -----
+            if (event === 'card_updated') {
+                return {
+                    ...prev,
+                    columns: prev.columns.map((c) => ({
+                        ...c,
+                        cards: c.cards.map((card) =>
+                            card.id === data.id ? { ...card, ...data } : card
+                        ),
+                    })),
+                };
+            }
+
+            // ----- card_moved -----
+            if (event === 'card_moved') {
+                // Ищем, где карточка сейчас
+                let currentCol = null;
+                let currentCard = null;
+                for (const c of prev.columns) {
+                    const found = c.cards.find((card) => card.id === data.id);
+                    if (found) {
+                        currentCol = c;
+                        currentCard = found;
+                        break;
+                    }
+                }
+
+                // Если карточка уже в нужной колонке и на той же позиции — не трогаем
+                if (
+                    currentCol &&
+                    currentCard &&
+                    currentCol.id === data.column_id &&
+                    currentCard.position === data.position &&
+                    currentCard.status === data.status
+                ) {
+                    return prev;
+                }
+
+                const targetCol = prev.columns.find((c) => c.id === data.column_id);
+                if (!targetCol) return prev;
+
+                // Убираем из старой колонки
+                const columnsWithout = prev.columns.map((c) => ({
+                    ...c,
+                    cards: currentCol
+                        ? c.cards.filter((card) => card.id !== data.id)
+                        : c.cards,
+                }));
+
+                // Вставляем в новую
+                const mergedCard = currentCard
+                    ? { ...currentCard, ...data }
+                    : { ...data };
+
+                const columns = columnsWithout.map((c) => {
+                    if (c.id !== data.column_id) return c;
+
+                    // Найдём правильную позицию по position
+                    const insertAt = c.cards.findIndex(
+                        (card) => (card.position ?? 0) > (data.position ?? 0)
+                    );
+                    const at = insertAt === -1 ? c.cards.length : insertAt;
+
+                    const cards = [
+                        ...c.cards.slice(0, at),
+                        mergedCard,
+                        ...c.cards.slice(at),
+                    ];
+                    return { ...c, cards };
+                });
+
+                return { ...prev, columns };
+            }
+
+            // ----- card_deleted -----
+            if (event === 'card_deleted') {
+                const id = data.id;
+                return {
+                    ...prev,
+                    columns: prev.columns.map((c) => ({
+                        ...c,
+                        cards: c.cards.filter((card) => card.id !== id),
+                    })),
+                };
+            }
+
+            return prev;
+        });
+    }, [isDuplicateEvent]);
+
+    // Подписка на WS
+    const wsStatus = useBoardSocket(boardId, applyWsEvent);
+
     return {
         board,
         loading,
         error,
         reload: load,
+        wsStatus,
         addColumn,
         editColumn,
         removeColumn,
