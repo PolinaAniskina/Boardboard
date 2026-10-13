@@ -80,6 +80,7 @@ class CardOut(BaseModel):
     assignee_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
+    labels: list[LabelOut] = []        
     model_config = {"from_attributes": True}
 
 class ColumnOut(BaseModel):
@@ -140,4 +141,7 @@ class AuditLogOut(BaseModel):
     created_at: datetime
     model_config = {"from_attributes": True}
 
+
+class CardLabelsUpdate(BaseModel):
+    label_ids: list[int]
 

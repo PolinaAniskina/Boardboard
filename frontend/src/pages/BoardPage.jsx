@@ -8,6 +8,7 @@ import KanbanColumn from '../components/KanbanColumn';
 import CardFormModal from '../components/CardFormModal';
 import ColumnFormModal from '../components/ColumnFormModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import BoardMembersModal from '../components/BoardMembersModal';
 import '../styles/board.css';
 
 export default function BoardPage() {
@@ -26,7 +27,13 @@ export default function BoardPage() {
         removeCard,
         moveCard,
         reorderColumns,
+        addMember,
+        removeMember,
+        labels,
+        saveCardLabels,
     } = useBoardData(boardId);
+
+    const [membersOpen, setMembersOpen] = useState(false);
 
     // --- Состояние формы колонки ---
     const [columnForm, setColumnForm] = useState({
@@ -112,15 +119,30 @@ export default function BoardPage() {
         setCardForm({ open: false, editing: null, defaultColumnId: null });
         setCardError('');
     };
-    const handleCardSubmit = async (payload) => {
+
+    const handleCardSubmit = async (payload, labelIds) => {
         setCardSubmitting(true);
         setCardError('');
         try {
+            let card;
             if (cardForm.editing) {
-                await editCard(cardForm.editing.id, payload);
+                card = await editCard(cardForm.editing.id, payload);
             } else {
-                await addCard(payload);
+                card = await addCard(payload);
             }
+
+            // Если набор меток изменился — отдельный запрос
+            if (Array.isArray(labelIds) && card) {
+                const currentIds = (cardForm.editing?.labels || [])
+                    .map((l) => l.id)
+                    .sort()
+                    .join(',');
+                const nextIds = [...labelIds].sort().join(',');
+                if (currentIds !== nextIds) {
+                    await saveCardLabels(card.id, labelIds);
+                }
+            }
+
             setCardForm({ open: false, editing: null, defaultColumnId: null });
         } catch (e) {
             setCardError(
@@ -130,6 +152,7 @@ export default function BoardPage() {
             setCardSubmitting(false);
         }
     };
+
     const handleDeleteCard = async () => {
         if (!deletingCard) return;
         setDeleteCardSubmitting(true);
@@ -213,6 +236,14 @@ export default function BoardPage() {
                                     ? 'Auth'
                                     : 'Offline'}
                     </span>
+                    {canManageColumns && (
+                        <button
+                            className="btn btn--ghost"
+                            onClick={() => setMembersOpen(true)}
+                        >
+                            Участники ({board.members?.length ?? 0})
+                        </button>
+                    )}
 
                     {canManageColumns && (
                         <button className="btn" onClick={openCreateColumn}>
@@ -263,11 +294,13 @@ export default function BoardPage() {
                 <CardFormModal
                     initial={cardForm.editing}
                     columns={board.columns}
+                    members={board.members || []}
                     defaultColumnId={cardForm.defaultColumnId}
                     onSubmit={handleCardSubmit}
                     onClose={closeCardForm}
                     submitting={cardSubmitting}
                     error={cardError}
+                    availableLabels={labels}
                 />
             )}
 
@@ -290,6 +323,16 @@ export default function BoardPage() {
                     onConfirm={handleDeleteCard}
                     onCancel={() => !deleteCardSubmitting && setDeletingCard(null)}
                     submitting={deleteCardSubmitting}
+                />
+            )}
+
+            {membersOpen && (
+                <BoardMembersModal
+                    board={board}
+                    user={user}
+                    onAdd={addMember}
+                    onRemove={removeMember}
+                    onClose={() => setMembersOpen(false)}
                 />
             )}
         </div>

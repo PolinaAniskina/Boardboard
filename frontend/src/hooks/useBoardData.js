@@ -12,6 +12,15 @@ import {
     moveCard as apiMoveCard,
 } from '../api/cards';
 import { useBoardSocket } from './useBoardSocket';
+import {
+    addMember as apiAddMember,
+    removeMember as apiRemoveMember,
+} from '../api/members';
+import {
+    setCardLabels as apiSetCardLabels,
+} from '../api/labels';
+import { listLabels as apiListLabels } from '../api/labels';
+
 
 function sortColumns(columns) {
     return [...columns].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
@@ -43,13 +52,19 @@ export function useBoardData(boardId) {
     const [board, setBoard] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [labels, setLabels] = useState([]);
 
     const load = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
-            const data = await getBoard(boardId);
+            // Грузим доску и метки параллельно
+            const [data, labelList] = await Promise.all([
+                getBoard(boardId),
+                apiListLabels(),
+            ]);
             setBoard(normalizeBoard(data));
+            setLabels(labelList);
         } catch (e) {
             setError(e?.response?.data?.detail || 'Не удалось загрузить доску');
         } finally {
@@ -184,6 +199,24 @@ export function useBoardData(boardId) {
         [boardId]
     );
 
+    const saveCardLabels = useCallback(
+        async (cardId, labelIds) => {
+            const updated = await apiSetCardLabels(boardId, cardId, labelIds);
+            setBoard((prev) => {
+                if (!prev) return prev;
+                const columns = prev.columns.map((c) => ({
+                    ...c,
+                    cards: c.cards.map((card) =>
+                        card.id === updated.id ? { ...card, ...updated } : card
+                    ),
+                }));
+                return { ...prev, columns };
+            });
+            return updated;
+        },
+        [boardId]
+    );
+
     // --- Перемещение карточки (dnd) ---
     const moveCard = useCallback(
         async ({ cardId, fromColumnId, toColumnId, toIndex }) => {
@@ -291,6 +324,38 @@ export function useBoardData(boardId) {
                 if (snapshot) setBoard(snapshot);
                 alert(e?.response?.data?.detail || 'Не удалось переставить колонки');
             }
+        },
+        [boardId]
+    );
+
+    // --- Участники доски ---
+    const addMember = useCallback(
+        async ({ username, role = 'member' }) => {
+            const created = await apiAddMember(boardId, { username, role });
+            setBoard((prev) => {
+                if (!prev) return prev;
+                // Не дублируем, если уже есть (на случай WS в будущем)
+                const exists = (prev.members || []).some(
+                    (m) => m.user_id === created.user_id
+                );
+                if (exists) return prev;
+                return { ...prev, members: [...(prev.members || []), created] };
+            });
+            return created;
+        },
+        [boardId]
+    );
+
+    const removeMember = useCallback(
+        async (userId) => {
+            await apiRemoveMember(boardId, userId);
+            setBoard((prev) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    members: (prev.members || []).filter((m) => m.user_id !== userId),
+                };
+            });
         },
         [boardId]
     );
@@ -462,5 +527,9 @@ export function useBoardData(boardId) {
         removeCard,
         moveCard,
         reorderColumns,
+        addMember,
+        removeMember,
+        labels,
+        saveCardLabels,
     };
 }

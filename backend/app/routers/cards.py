@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User, Board, Column, Card
-from app.schemas import CardCreate, CardUpdate, CardMove, CardOut
+from app.models import User, Board, Column, Card, Label, card_labels
+from app.schemas import CardCreate, CardUpdate, CardMove, CardOut, CardLabelsUpdate
 from app.auth import get_current_user_with_roles, require_roles
 from app.services.audit import log_action
 from app.services.ws_manager import manager
@@ -256,3 +256,78 @@ async def delete_card(
 
     log_action(db, board_id, user.id, "delete", "card", card_id, {})
     await notify_board(board_id, "card_deleted", {"id": card_id})
+
+
+@router.put("/{card_id}/labels", response_model=CardOut)
+async def set_card_labels(
+    board_id: int,
+    card_id: int,
+    data: CardLabelsUpdate,
+    current: dict = Depends(get_current_user_with_roles),
+    db: Session = Depends(get_db),
+):
+    user = current["user"]
+
+    card = db.query(Card).filter(Card.id == card_id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Карточка не найдена")
+
+    # Проверка принадлежности доске
+    col = db.query(Column).filter(Column.id == card.column_id).first()
+    if not col or col.board_id != board_id:
+        raise HTTPException(
+            status_code=400, detail="Карточка не относится к этой доске"
+        )
+
+    board = col.board
+    is_owner = board.owner_id == user.id
+    from app.models import board_members
+    is_member = (
+        db.query(board_members)
+        .filter(
+            board_members.c.board_id == board_id,
+            board_members.c.user_id == user.id,
+        )
+        .first()
+        is not None
+    )
+    if not (is_owner or is_member or has_role(current, "admin")):
+        raise HTTPException(
+            status_code=403, detail="Нет прав на изменение меток"
+        )
+
+    # Проверим, что все переданные id существуют
+    ids = list({int(x) for x in (data.label_ids or [])})
+    if ids:
+        found = db.query(Label).filter(Label.id.in_(ids)).all()
+        found_ids = {l.id for l in found}
+        missing = set(ids) - found_ids
+        if missing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Метки не найдены: {sorted(missing)}",
+            )
+
+    # Заменяем набор меток целиком: удаляем старые связи, добавляем новые
+    db.execute(
+        card_labels.delete().where(card_labels.c.card_id == card_id)
+    )
+    if ids:
+        db.execute(
+            card_labels.insert(),
+            [{"card_id": card_id, "label_id": lid} for lid in ids],
+        )
+
+    db.commit()
+    db.refresh(card)
+
+    log_action(
+        db, board_id, user.id, "update", "card", card.id,
+        {"labels": ids},
+    )
+    await notify_board(
+        board_id, "card_updated",
+        CardOut.model_validate(card).model_dump(),
+    )
+
+    return card

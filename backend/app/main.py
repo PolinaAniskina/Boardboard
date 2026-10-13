@@ -2,8 +2,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base, SessionLocal
-from app.routers import auth, boards, columns, cards, websocket, members
+from app.routers import auth, boards, columns, cards, websocket, members, labels
 from app.seed_roles import seed_roles
+from app.seed_labels import seed_labels
 import logging
 
 logger = logging.getLogger("uvicorn.error")
@@ -18,9 +19,10 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         seed_roles(db)
-        logger.info("Roles seeded: %s", [r.name for r in db.query(__import__('app.models', fromlist=['Role']).Role).all()])
+        created_labels = seed_labels(db)
+        logger.info("Labels seeded: %s", created_labels or "already present")
     except Exception as e:
-        logger.exception("Failed to seed roles: %s", e)
+        logger.exception("Failed to seed roles/labels: %s", e)
         db.rollback()
     finally:
         db.close()
@@ -49,6 +51,7 @@ app.include_router(columns.router, prefix="/api")
 app.include_router(cards.router, prefix="/api")
 app.include_router(websocket.router, prefix="/api")
 app.include_router(members.router, prefix="/api")
+app.include_router(labels.router, prefix="/api")
 
 
 @app.get("/")
