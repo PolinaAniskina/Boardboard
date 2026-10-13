@@ -90,6 +90,22 @@ class ColumnOut(BaseModel):
     cards: list[CardOut] = []
     model_config = {"from_attributes": True}
 
+
+class BoardMemberOut(BaseModel):
+    user_id: int
+    username: str
+    email: str
+    role: str            # "owner" | "admin" | "member"
+    is_owner: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class BoardMemberCreate(BaseModel):
+    username: str        # добавляем по username — user_id фронт не знает
+    role: str = "member"  # на будущее
+
+
 class BoardOut(BaseModel):
     id: int
     name: str
@@ -97,6 +113,7 @@ class BoardOut(BaseModel):
     owner_id: int
     created_at: datetime
     columns: list[ColumnOut] = []
+    members: list[BoardMemberOut] = []   # ← новое
     model_config = {"from_attributes": True}
 
 
@@ -122,3 +139,5 @@ class AuditLogOut(BaseModel):
     details: Optional[dict] = None
     created_at: datetime
     model_config = {"from_attributes": True}
+
+

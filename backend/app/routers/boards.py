@@ -8,6 +8,7 @@ from app.database import get_db
 from app.models import User, Board, board_members
 from app.schemas import BoardCreate, BoardUpdate, BoardOut
 from app.auth import get_current_user_with_roles
+from app.services.board_serializer import serialize_board
 
 router = APIRouter(prefix="/boards", tags=["boards"])
 
@@ -20,10 +21,10 @@ def has_role(current: dict, role_name: str) -> bool:
 @router.get("", response_model=list[BoardOut])
 def list_boards(
     current: dict = Depends(get_current_user_with_roles),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     user = current["user"]
-    return (
+    boards = (
         db.query(Board)
         .join(board_members, board_members.c.board_id == Board.id, isouter=True)
         .filter(
@@ -32,36 +33,36 @@ def list_boards(
         .distinct()
         .all()
     )
+    # В списке не отдаём участников — это тяжело и не нужно.
+    return [serialize_board(b, db, include_members=False) for b in boards]
 
 
 @router.post("", response_model=BoardOut, status_code=201)
 def create_board(
     data: BoardCreate,
     current: dict = Depends(get_current_user_with_roles),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     user = current["user"]
     board = Board(name=data.name, description=data.description, owner_id=user.id)
     db.add(board)
     db.commit()
     db.refresh(board)
-    return board
+    return serialize_board(board, db)
 
 
 @router.get("/{board_id}", response_model=BoardOut)
 def get_board(
     board_id: int,
     current: dict = Depends(get_current_user_with_roles),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     user = current["user"]
     board = db.query(Board).filter(Board.id == board_id).first()
     if not board:
         raise HTTPException(status_code=404, detail="Доска не найдена")
 
-    # Владелец, участник доски или админ
     is_owner = board.owner_id == user.id
-
     is_member = (
         db.query(board_members)
         .filter(
@@ -71,11 +72,10 @@ def get_board(
         .first()
         is not None
     )
-
     if not (is_owner or is_member or has_role(current, "admin")):
         raise HTTPException(status_code=403, detail="Нет доступа к этой доске")
 
-    return board
+    return serialize_board(board, db)
 
 
 @router.put("/{board_id}", response_model=BoardOut)
@@ -83,14 +83,13 @@ def update_board(
     board_id: int,
     data: BoardUpdate,
     current: dict = Depends(get_current_user_with_roles),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     user = current["user"]
     board = db.query(Board).filter(Board.id == board_id).first()
     if not board:
         raise HTTPException(status_code=404, detail="Доска не найдена")
 
-    # Только владелец или админ могут редактировать
     if board.owner_id != user.id and not has_role(current, "admin"):
         raise HTTPException(status_code=403, detail="Нет прав на редактирование")
 
@@ -98,22 +97,25 @@ def update_board(
         board.name = data.name
     if data.description is not None:
         board.description = data.description
+
     db.commit()
     db.refresh(board)
-    return board
+    return serialize_board(board, db)
 
 
 @router.delete("/{board_id}", status_code=204)
 def delete_board(
     board_id: int,
     current: dict = Depends(get_current_user_with_roles),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     user = current["user"]
     board = db.query(Board).filter(Board.id == board_id).first()
     if not board:
         raise HTTPException(status_code=404, detail="Доска не найдена")
+
     if board.owner_id != user.id and not has_role(current, "admin"):
         raise HTTPException(status_code=403, detail="Нет прав на удаление")
+
     db.delete(board)
     db.commit()

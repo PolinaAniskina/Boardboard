@@ -1,19 +1,30 @@
-"""
-Точка входа: FastAPI-приложение, роутеры, инициализация БД.
-Запуск: uvicorn app.main:app --reload
-"""
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from app.database import engine, Base
-from app.routers import auth, boards, columns, cards, websocket
+from app.database import engine, Base, SessionLocal
+from app.routers import auth, boards, columns, cards, websocket, members
 from app.seed_roles import seed_roles
+import logging
+
+logger = logging.getLogger("uvicorn.error")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 1. Создаём таблицы
     Base.metadata.create_all(bind=engine)
+
+    # 2. Засеваем роли
+    db = SessionLocal()
+    try:
+        seed_roles(db)
+        logger.info("Roles seeded: %s", [r.name for r in db.query(__import__('app.models', fromlist=['Role']).Role).all()])
+    except Exception as e:
+        logger.exception("Failed to seed roles: %s", e)
+        db.rollback()
+    finally:
+        db.close()
+
     yield
 
 
@@ -24,20 +35,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-from sqlalchemy.exc import IntegrityError
-
-@app.on_event("startup")
-def startup_event():
-    from app.database import get_db
-    db = next(get_db())
-    try:
-        seed_roles(db)
-    except IntegrityError:
-        pass
-    finally:
-        db.close()
-
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -46,12 +43,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 app.include_router(auth.router, prefix="/api")
 app.include_router(boards.router, prefix="/api")
 app.include_router(columns.router, prefix="/api")
 app.include_router(cards.router, prefix="/api")
 app.include_router(websocket.router, prefix="/api")
+app.include_router(members.router, prefix="/api")
 
 
 @app.get("/")
