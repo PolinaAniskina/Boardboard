@@ -1,34 +1,63 @@
 version: '3.8'
 
 services:
-
-  # Бэкенд (FastAPI)
   backend:
-    build: ./backend
-    container_name: kanban_backend
+    build:
+      context: ./backend
+    container_name: boardboard-backend
+    restart: unless-stopped
+    expose:
+      - "8000"
     ports:
-      - "${API_PORT}:8000"
+      - "8000:8000"    # опционально — чтобы можно было зайти в /docs напрямую
+    volumes:
+      # Монтируем код для hot-reload
+      - ./backend/app:/code/app
+      # Отдельный volume для БД, чтобы данные пережили рестарт контейнера
+      - boardboard-db:/code/data
     environment:
-      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/\${DB_NAME}
-      - SECRET_KEY=\${SECRET_KEY}
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=sqlite:////code/data/board.db
     networks:
-      - kanban-net
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      - boardboard-net
 
-  # Фронтенд (React)
   frontend:
-    build: ./frontend
-    container_name: kanban_frontend
-    ports:
-      - "${FRONTEND_PORT}:3000"
+    build:
+      context: ./frontend
+    container_name: boardboard-frontend
+    restart: unless-stopped
+    expose:
+      - "3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      # Анонимный volume для node_modules, чтобы не перекрывался хост-папкой
+      - /app/node_modules
     environment:
-      - FAST_REFRESH=false
+      - CHOKIDAR_USEPOLLING=true
+      - WDS_SOCKET_PORT=0
     depends_on:
       - backend
     networks:
-      - kanban-net
+      - boardboard-net
 
+  proxy:
+    image: nginx:stable-alpine
+    container_name: boardboard-proxy
+    restart: unless-stopped
+    ports:
+      - "3000:80"      # основной вход в приложение
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - boardboard-net
+
+volumes:
+  boardboard-db:
 
 networks:
-  kanban-net:
+  boardboard-net:
     driver: bridge

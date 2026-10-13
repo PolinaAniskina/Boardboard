@@ -3,9 +3,18 @@ import { API_BASE_URL, getToken } from '../api/client';
 const WS_POLICY_VIOLATION = 1008;
 
 function buildWsUrl(boardId) {
-    const base = API_BASE_URL.replace(/^http/, 'ws');
     const token = getToken() || '';
     const qs = token ? `?token=${encodeURIComponent(token)}` : '';
+
+    // Если API_BASE_URL абсолютный — используем его,
+    // иначе — строим от текущего origin (window.location)
+    let base;
+    if (API_BASE_URL.startsWith('http')) {
+        base = API_BASE_URL.replace(/^http/, 'ws');
+    } else {
+        const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        base = `${proto}//${window.location.host}${API_BASE_URL}`;
+    }
     return `${base}/ws/${boardId}${qs}`;
 }
 

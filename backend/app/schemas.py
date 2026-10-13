@@ -25,6 +25,18 @@ class UserOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class LabelCreate(BaseModel):
+    name: str
+    color: str = "#6b7280"
+
+
+class LabelOut(BaseModel):
+    id: int
+    name: str
+    color: str
+    model_config = {"from_attributes": True}
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -115,18 +127,6 @@ class BoardOut(BaseModel):
     created_at: datetime
     columns: list[ColumnOut] = []
     members: list[BoardMemberOut] = []   # ← новое
-    model_config = {"from_attributes": True}
-
-
-class LabelCreate(BaseModel):
-    name: str
-    color: str = "#6b7280"
-
-
-class LabelOut(BaseModel):
-    id: int
-    name: str
-    color: str
     model_config = {"from_attributes": True}
 
 
