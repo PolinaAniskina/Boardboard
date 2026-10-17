@@ -6,9 +6,9 @@ from sqlalchemy.orm import Session
 from .models import Label
 
 PRESET_LABELS = [
-    ("Не начато", "#d93a3a"),
-    ("В процессе", "#3b6cf6"),
-    ("Сделано", "#2e7d3a"),
+    ("Bug", "#d93a3a"),
+    ("Feature", "#3b6cf6"),
+    ("Docs", "#2e7d3a"),
 ]
 
 

@@ -11,7 +11,7 @@
 Требуется установленный [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
 ```bash
-git clone <https://github.com/PolinaAniskina/Boardboard>
+git clone https://github.com/PolinaAniskina/Boardboard
 cd Boardboard
 docker compose up --build
 ```
